@@ -496,6 +496,9 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
+Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : list block) :
+  path l -> oram n l. Admitted.
+
 (* Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : list block) : *)
 (*   path l -> oram n l := *)
 (*   match o in (oram _ l) return path l -> oram n l with *)
