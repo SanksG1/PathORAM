@@ -496,9 +496,21 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-  
-Definition up_oram_tr {n l : nat} (o : oram n l) (id : block_id)
-  (cand_bs : list block) (lvl : nat) : oram n l. Admitted.
+(* Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : list block) : *)
+(*   path l -> oram n l := *)
+(*   match o in (oram _ l) return path l -> oram n l with *)
+(*   | Leaf_ORAM => fun _ => Leaf_ORAM *)
+(*   | Node_ORAM d_o o_l o_r => *)
+(*       fun p => *)
+(*         match stop with *)
+(*         | O => Node_ORAM (Vector.of_list d_n) o_l o_r *)
+(*         | S stop' => *)
+(*             match Vector.hd p with *)
+(*             | true => Node_ORAM d_o (up_oram_tr o_l stop' (Vector.tl p)) o_r *)
+(*             | false => Node_ORAM d_o o_l(up_oram_tr o_r stop' (Vector.tl p)) *)
+(*             end *)
+(*         end *)
+(*   end. *)
 
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
