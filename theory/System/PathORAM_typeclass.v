@@ -372,7 +372,7 @@ Record block : Type := Block
   }.
 Definition path (l : nat) := Vector.t bool l.
 Definition position_map (l : nat) := dict block_id (path l).
-Definition stash (n : nat) := list block.
+Definition stash := list block.
 Definition bucket (n : nat) := Vector.t block n.
 
 Inductive oram (n : nat) : forall (l : nat), Type :=
@@ -422,7 +422,7 @@ Definition tail_r_oram {n l : nat} (o : oram n (S l)) : oram n l :=
 
 Record state (n l : nat) : Type := State
   { state_position_map : position_map l
-  ; state_stash : stash n
+  ; state_stash : stash
   ; state_oram : oram n l
   }.
 Arguments State {n l} _ _ _.
@@ -461,13 +461,24 @@ Inductive operation :=
 Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
-Definition get_cand_bs {n l : nat} (h : stash n)(p : path l) (stop : nat) : list block := [].
+Definition isEqvPath {l : nat} (p1 : path l) (p2 : path l) (idx : nat): bool :=
+  Vector.eqb bool Bool.eqb p1 p2.
+
+Fixpoint get_cand_bs {l : nat} (h : stash)(p : path l)(stop : nat)(m : position_map l) : list block :=
+  match h with
+  | [] => []
+  | x :: xs =>
+      let rhs_path := lookup_dict dummy_path (block_blockid x) m in
+      if @isEqvPath l p rhs_path stop
+      then x :: get_cand_bs xs p stop m
+      else get_cand_bs xs p stop m
+  end.
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
-Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat) (p : path l)(h : stash n) (lvl : nat) : list block :=
+Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat) (p : path l)(h : stash) (lvl : nat) (mp : position_map l) : list block :=
   match (length h) with
   | O => []
-  | S m => let cand_bs := get_cand_bs h p lvl in (* to be implemented *)
+  | S m => let cand_bs := get_cand_bs h p lvl mp in (* to be implemented *)
           if Nat.leb cap (length(cand_bs))
           then let wbSz := cap in
                takeL cap cand_bs
@@ -566,7 +577,7 @@ Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
-  let wbs := get_write_back_blocks o 4 p h lvl in 
+  let wbs := get_write_back_blocks o 4 p h lvl m in 
   (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
   let up_o := up_oram_tr o lvl wbs p in
@@ -585,7 +596,7 @@ Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
     a <- dx ;; mreturn (a, st).
 
 Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : position_map l)
-                                   (h : stash n) (o : oram n l) (p : path l)  (p_new : path l) :=
+                                   (h : stash) (o : oram n l) (p : path l)  (p_new : path l) :=
   (* update the position map with the new path *)
   let m' := update_dict id p_new m in
   (* read the path for the index from the oram *)
@@ -772,7 +783,7 @@ Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :
 
 Require Import Coq.Program.Equality.      
 
-Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
+Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
@@ -812,7 +823,7 @@ Admitted.
 (*   access_helper id Read m h o2 p p_new = (nst, v) -> *)
 (*   access_helper id Read m h (Node_ORAM b o1 o2) p p_new = (nst, v). *)
 
-Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
+Lemma zero_sum_stsh_tr_Rd {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l),
     kv_rel id v (State m h o) -> 
     access_helper id Read m h o p p_new = (nst, v).
@@ -836,7 +847,7 @@ Proof.
 Admitted.
 
       
-Lemma zero_sum_stsh_tr_Rd_rev {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash n) (o : oram n l) (p : path l)  (p_new : path l):
+Lemma zero_sum_stsh_tr_Rd_rev {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram n l) (p : path l)  (p_new : path l):
   forall (os ns: state n l) (ret_data : nat),
     access_helper id Read (state_position_map os) (state_stash os) (state_oram os) p p_new = (ns, v) -> kv_rel id ret_data ns.
 Admitted.    
