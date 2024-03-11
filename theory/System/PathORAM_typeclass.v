@@ -461,13 +461,13 @@ Inductive operation :=
 Definition dummy_block : block := Block O O.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
-Definition get_cand_bs {n l : nat} (o : oram n l) : list block := [].
+Definition get_cand_bs {n l : nat} (h : stash n)(p : path l) (stop : nat) : list block := [].
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
-Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat)  (h : stash n) (id : nat) : list block :=
+Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat) (p : path l)(h : stash n) (lvl : nat) : list block :=
   match (length h) with
   | O => []
-  | S m => let cand_bs := get_cand_bs o in (* to be implemented *)
+  | S m => let cand_bs := get_cand_bs h p lvl in (* to be implemented *)
           if Nat.leb cap (length(cand_bs))
           then let wbSz := cap in
                takeL cap cand_bs
@@ -566,10 +566,10 @@ Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
-  let wbs := get_write_back_blocks o 4 h id in 
+  let wbs := get_write_back_blocks o 4 p h lvl in 
   (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
-  let up_o := up_oram_tr o id wbs lvl in
+  let up_o := up_oram_tr o lvl wbs p in
   (State m up_h up_o).
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
