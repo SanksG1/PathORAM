@@ -618,7 +618,7 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
   let h''' :=
     match op with
     | Read => h'
-    | Write d => [Block id d true] ++ h''
+    | Write d => (Block id d true) :: h''
     end in
   let n_st := write_back (State m' h''' o) p l in
   (n_st, ret_data).
@@ -792,7 +792,7 @@ Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_ma
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
-  unfold access_helper; simpl.
+  unfold access_helper. simpl.
   intros. inversion H. subst.
   
 
