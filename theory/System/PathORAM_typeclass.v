@@ -4,6 +4,7 @@ Require Import Coq.Lists.List.
 Require Import Coq.QArith.QArith.
 Require Import Coq.Classes.EquivDec.
 Import ListNotations.
+Require Import Coq.Program.Equality.
 (*** CLASSES ***)
 
 (* I'm rolling my own version of lots of datatypes and using typeclasses
@@ -589,10 +590,10 @@ Definition blocks_selection {n l : nat} (p : path l) (lvl : nat) (s : state n l)
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocks back *)
 
-Fixpoint write_back {n l : nat} (s : state n) (p : path l) (lvl : nat) : state n l :=
+Fixpoint write_back {n l : nat} (s : state n l) (p : path l) (lvl : nat) : state n l :=
   match lvl with
-  | O => blocks_selection id p O s
-  | S m => write_back (blocks_selection id p lvl s) id p m
+  | O => blocks_selection p O s
+  | S m => write_back (blocks_selection p lvl s) p m
   end.
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
@@ -785,7 +786,7 @@ Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) :
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
   (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-Require Import Coq.Program.Equality.      
+
 
 Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l) (ret_data : nat),  
