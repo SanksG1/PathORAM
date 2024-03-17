@@ -508,18 +508,18 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
       else lookup_ret_data id t
   end.
 
-Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : list block) :
-  path l -> oram n l :=
+Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : bucket n) :
+  path l -> oram n l := 
   match o in (oram _ l) return path l -> oram n l with
   | Leaf_ORAM => fun _ => Leaf_ORAM
   | Node_ORAM d_o o_l o_r =>
       fun p =>
         match stop with
-        | O => Node_ORAM (Vector.of_list d_n) o_l o_r
+        | O => Node_ORAM d_n  o_l o_r
         | S stop' =>
             match Vector.hd p with
-            | true => Node_ORAM d_o (up_oram_tr o_l stop' (Vector.tl p)) o_r
-            | false => Node_ORAM d_o o_l(up_oram_tr o_r stop' (Vector.tl p))
+            | true => Node_ORAM d_o (up_oram_tr o_l stop' d_n (Vector.tl p)) o_r
+            | false => Node_ORAM d_o o_l(up_oram_tr o_r stop' d_n (Vector.tl p))
             end
         end
   end.
@@ -576,7 +576,6 @@ Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat)
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := get_write_back_blocks o 4 p h lvl m in 
-  (* let (pop_bs, up_h) := remove_list_sub wbs  (fun blk => equiv_dec (block_blockid blk) id) h in  *)
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
   let up_o := up_oram_tr o lvl wbs p in
   (State m up_h up_o).
