@@ -487,7 +487,12 @@ Definition get_write_back_blocks {n l : nat} (o : oram n l) (p : path l) (h : st
                takeL wbSz cand_bs
   end.
 
-Lemma 
+Lemma bound_get_write_back_blocks {n l : nat} {o : oram n l} {p : path l} {h : stash} {lvl : nat} {mp : position_map l} : (length (get_write_back_blocks o p h lvl mp) <= n)%nat.
+Admitted.
+
+Fixpoint pad_list_vec {X} {n : nat} (l : list X) (H : (length l <= n)%nat): Vector.t X n.
+Admitted.
+
 Fixpoint remove_list_sub (subList : list block) (p : block_id -> block_id -> bool) (lst : list block) : list block :=
   match lst with
   | [] => []
@@ -576,9 +581,10 @@ Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
-  let wbs := get_write_back_blocks o 4 p h lvl m in 
+  let wbs := get_write_back_blocks o p h lvl m in 
+  let wbs_bkt := pad_list_vec(get_write_back_blocks o p h lvl m) bound_get_write_back_blocks in 
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
-  let up_o := up_oram_tr o lvl wbs p in
+  let up_o := up_oram_tr o lvl wbs_bkt p in
   (State m up_h up_o).
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
