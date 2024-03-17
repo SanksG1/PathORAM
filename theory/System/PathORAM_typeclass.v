@@ -617,7 +617,7 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
   let h''' :=
     match op with
     | Read => h'
-    | Write d => [Block id d] ++ h''
+    | Write d => [Block id d true] ++ h''
     end in
   let n_st := write_back (State m' h''' o) id p l in
   (n_st, ret_data).
@@ -779,7 +779,7 @@ Definition blk_in_tree {n l : nat} (id : block_id) (v : nat )(st : state n l) : 
 
 Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) : Prop :=
   let s := state_stash st in 
-  In (Block id v) s.
+  In (Block id v true) s.
 
 (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
