@@ -477,7 +477,7 @@ Fixpoint get_cand_bs {l : nat} (h : stash)(p : path l)(stop : nat)(m : position_
   end.
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
-Definition get_write_back_blocks {n l : nat} (o : oram n l) (p : path l) (h : stash) (lvl : nat) (mp : position_map l) : list block :=
+Definition get_write_back_blocks {n l : nat} (p : path l) (h : stash) (lvl : nat) (mp : position_map l) : list block :=
   match (length h) with
   | O => []
   | S m => let cand_bs := get_cand_bs h p lvl mp in (* to be implemented *)
@@ -792,8 +792,14 @@ Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_ma
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
-  unfold access_helper. simpl.
-  intros. inversion H. subst.
+  unfold access_helper. simpl in *.
+  intros.
+  destruct o.  
+  - unfold write_back in H. unfold blocks_selection in H; simpl in *. destruct H.
+
+    
+  - simpl in *. unfold blocks_selection in H. simpl in H. unfold up_oram_tr in H; simpl in *.
+  inversion H. subst.
   
 
 
