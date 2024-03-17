@@ -576,7 +576,7 @@ Proof.
 Qed.
 (* --- END Talia's equivalent definition of nth to reuse later --- *)
 
-Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat) (s : state n l) : state n l :=
+Definition blocks_selection {n l : nat} (p : path l) (lvl : nat) (s : state n l) : state n l :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
@@ -587,12 +587,12 @@ Definition blocks_selection {n l : nat} (id : block_id) (p : path l) (lvl : nat)
   let up_o := up_oram_tr o lvl wbs_bkt p in
   (State m up_h up_o).
 
-(* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocs back *)
+(* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocks back *)
 
-Fixpoint write_back {n l : nat} (s : state n l) (id : block_id) (p : path l) (lvl : nat) : state n l := 
+Fixpoint write_back {n l : nat} (s : state n) (p : path l) (lvl : nat) : state n l :=
   match lvl with
   | O => blocks_selection id p O s
-  | S m => write_back (blocks_selection id p m s) id p m
+  | S m => write_back (blocks_selection id p lvl s) id p m
   end.
 
 Definition dist2Poram {S X} (dx : dist X) : Poram_st S dist X :=
@@ -619,7 +619,7 @@ Definition access_helper {n l : nat} (id : block_id) (op : operation) (m : posit
     | Read => h'
     | Write d => [Block id d true] ++ h''
     end in
-  let n_st := write_back (State m' h''' o) id p l in
+  let n_st := write_back (State m' h''' o) p l in
   (n_st, ret_data).
   
 Definition access {n l : nat} (id : block_id) (op : operation) :
@@ -791,8 +791,8 @@ Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_ma
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
-  (* unfold access_helper; simpl. *)
-  (* intros. inversion H. subst. *)
+  unfold access_helper; simpl.
+  intros. inversion H. subst.
   
 
 
