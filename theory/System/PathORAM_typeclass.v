@@ -369,6 +369,7 @@ Definition block_id := nat.
 Record block : Type := Block
   { block_blockid : block_id
   ; block_payload : nat
+  ; block_valid : bool 
   }.
 Definition path (l : nat) := Vector.t bool l.
 Definition position_map (l : nat) := dict block_id (path l).
@@ -384,7 +385,7 @@ Arguments Node_ORAM {n l} _ _ _.
 Fixpoint In_tree {n l : nat}(id : block_id) (v : nat) (o : oram n l) : Prop :=
   match o with
   | Leaf_ORAM => False 
-  | Node_ORAM bk l r => VectorDef.In (Block id v) bk \/ In_tree id v l \/ In_tree id v r
+  | Node_ORAM bk l r => VectorDef.In (Block id v true) bk \/ In_tree id v l \/ In_tree id v r
   end.
 
 Definition Poram_st S M A : Type := S -> M (A * S)%type.
@@ -458,7 +459,7 @@ Inductive operation :=
   | Read : operation 
   | Write : nat -> operation.
 
-Definition dummy_block : block := Block O O.
+Definition dummy_block : block := Block O O false.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
 Definition isEqvPath {l : nat} (p1 : path l) (p2 : path l) (idx : nat): bool :=
@@ -508,23 +509,20 @@ Fixpoint lookup_ret_data (id : block_id) (lb : list block): nat :=
   end.
 
 Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : list block) :
-  path l -> oram n l. Admitted.
-
-(* Fixpoint up_oram_tr {n l : nat} (o : oram n l) (stop : nat) (d_n : list block) : *)
-(*   path l -> oram n l := *)
-(*   match o in (oram _ l) return path l -> oram n l with *)
-(*   | Leaf_ORAM => fun _ => Leaf_ORAM *)
-(*   | Node_ORAM d_o o_l o_r => *)
-(*       fun p => *)
-(*         match stop with *)
-(*         | O => Node_ORAM (Vector.of_list d_n) o_l o_r *)
-(*         | S stop' => *)
-(*             match Vector.hd p with *)
-(*             | true => Node_ORAM d_o (up_oram_tr o_l stop' (Vector.tl p)) o_r *)
-(*             | false => Node_ORAM d_o o_l(up_oram_tr o_r stop' (Vector.tl p)) *)
-(*             end *)
-(*         end *)
-(*   end. *)
+  path l -> oram n l :=
+  match o in (oram _ l) return path l -> oram n l with
+  | Leaf_ORAM => fun _ => Leaf_ORAM
+  | Node_ORAM d_o o_l o_r =>
+      fun p =>
+        match stop with
+        | O => Node_ORAM (Vector.of_list d_n) o_l o_r
+        | S stop' =>
+            match Vector.hd p with
+            | true => Node_ORAM d_o (up_oram_tr o_l stop' (Vector.tl p)) o_r
+            | false => Node_ORAM d_o o_l(up_oram_tr o_r stop' (Vector.tl p))
+            end
+        end
+  end.
 
 (* --- BEGIN Talia's equivalent definition of nth to reuse later --- *)
 Fixpoint nth_error_opt {A : Type} {m : nat} (v : Vector.t A m) (n : nat) : option A :=
