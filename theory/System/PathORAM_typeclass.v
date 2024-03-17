@@ -476,17 +476,18 @@ Fixpoint get_cand_bs {l : nat} (h : stash)(p : path l)(stop : nat)(m : position_
   end.
 
 (* cap is the capability of each node, the current magic number is 4 based on the original paper *)
-Definition get_write_back_blocks {n l : nat} (o : oram n l) (cap : nat) (p : path l)(h : stash) (lvl : nat) (mp : position_map l) : list block :=
+Definition get_write_back_blocks {n l : nat} (o : oram n l) (p : path l) (h : stash) (lvl : nat) (mp : position_map l) : list block :=
   match (length h) with
   | O => []
   | S m => let cand_bs := get_cand_bs h p lvl mp in (* to be implemented *)
-          if Nat.leb cap (length(cand_bs))
-          then let wbSz := cap in
-               takeL cap cand_bs
+          if Nat.leb n (length(cand_bs))
+          then let wbSz := n in
+               takeL n cand_bs
           else let wbSz := length(cand_bs) in 
                takeL wbSz cand_bs
   end.
 
+Lemma 
 Fixpoint remove_list_sub (subList : list block) (p : block_id -> block_id -> bool) (lst : list block) : list block :=
   match lst with
   | [] => []
