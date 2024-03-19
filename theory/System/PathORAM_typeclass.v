@@ -476,19 +476,21 @@ Fixpoint get_cand_bs {l : nat} (h : stash)(p : path l)(stop : nat)(m : position_
       else get_cand_bs xs p stop m
   end.
 
-(* cap is the capability of each node, the current magic number is 4 based on the original paper *)
 Definition get_write_back_blocks {n l : nat} (p : path l) (h : stash) (lvl : nat) (mp : position_map l) : list block :=
   match (length h) with
   | O => []
-  | S m => let cand_bs := get_cand_bs h p lvl mp in (* to be implemented *)
-          if Nat.leb n (length(cand_bs))
-          then let wbSz := n in
-               takeL n cand_bs
-          else let wbSz := length(cand_bs) in 
-               takeL wbSz cand_bs
+  | S m => let cand_bs := get_cand_bs h p lvl mp in
+          takeL (Nat.min (length cand_bs) n) cand_bs
   end.
+  (*         if Nat.leb n (length(cand_bs)) *)
+  (*         then let wbSz := n in *)
+  (*              takeL n cand_bs *)
+  (*         else let wbSz := length(cand_bs) in  *)
+  (*              takeL wbSz cand_bs *)
+  (* end. *)
 
-Lemma bound_get_write_back_blocks {n l : nat} {o : oram n l} {p : path l} {h : stash} {lvl : nat} {mp : position_map l} : (length (get_write_back_blocks o p h lvl mp) <= n)%nat.
+Lemma bound_get_write_back_blocks {n l : nat} {p : path l} {h : stash} {lvl : nat} {mp : position_map l} :
+  (length (@get_write_back_blocks n l p h lvl mp) <= n)%nat.
 Admitted.
 
 Fixpoint pad_list_vec {X} {n : nat} (l : list X) (H : (length l <= n)%nat): Vector.t X n.
@@ -582,8 +584,8 @@ Definition blocks_selection {n l : nat} (p : path l) (lvl : nat) (s : state n l)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
-  let wbs := get_write_back_blocks o p h lvl m in 
-  let wbs_bkt := pad_list_vec(get_write_back_blocks o p h lvl m) bound_get_write_back_blocks in 
+  let wbs := @get_write_back_blocks n l p h lvl m in 
+  let wbs_bkt := pad_list_vec(get_write_back_blocks p h lvl m) bound_get_write_back_blocks in 
   let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
   let up_o := up_oram_tr o lvl wbs_bkt p in
   (State m up_h up_o).
@@ -784,39 +786,33 @@ Definition blk_in_stash {n l : nat} (id : block_id) (v : nat )(st : state n l) :
 
 (* kv-rel relation should hold whenever we have a write access that has (id, v) into the ORAM.   *)
 Definition kv_rel {n l : nat}(id : block_id) (v : nat) (st : state n l) : Prop :=
-  (blk_in_stash id v st) \/ (blk_in_tree id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
+  (blk_in_tree id v st)
+    \/ (blk_in_stash id v st). (* "Come back to me" -- The bone dog in Shogun Studio *)
 
-
+Lemma zero_len_vector_nil {X} : forall (v : Vector.t X O), v = @Vector.nil X. Admitted.
+Lemma eqdec_true {A} `{EqDec A} (x : A) : x ==b x = true. 
+Proof.
+  unfold equiv_decb.
+  destruct (x == x).
+  - auto.
+  - elim c. reflexivity.
+Qed.
 
 Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
 Proof.
   unfold access_helper. simpl in *.
-  intros.
-  destruct o.  
-  - unfold write_back in H. unfold blocks_selection in H; simpl in *. destruct H.
-
-    
-  - simpl in *. unfold blocks_selection in H. simpl in H. unfold up_oram_tr in H; simpl in *.
-  inversion H. subst.
-  
-
-
-
-
-  
-  (* destruct o. *)
-  (* - unfold access_helper. simpl. unfold kv_rel. unfold blocks_selection; simpl. intros. inversion H; simpl in * . left. unfold blk_in_stash. simpl. left. reflexivity. *)
-  (* -  *)
-
-
-
-
-
-  
-  destruct l; intros.
-  - dependent induction o. (* we need H to give us a contradiction, but that isn't provable yet *)
+  intros. 
+  destruct o.
+  - unfold write_back in H. unfold blocks_selection in H; simpl in *. inversion H.
+    + unfold kv_rel. right. unfold blk_in_stash. simpl. unfold get_write_back_blocks. simpl.
+      rewrite (zero_len_vector_nil p).
+      rewrite (zero_len_vector_nil  (lookup_dict dummy_path id (update_dict id p_new m))).
+      simpl.
+      destruct n; simpl.
+      * left. auto.
+      * rewrite eqdec_true. simpl. unfold get_cand_bs. 
     (* specifically, access_helper should only be defined when the oram is level at least 1 *)
     admit.
   - (* now we are in the actually viable case. prove following the structure of access_helper *)
