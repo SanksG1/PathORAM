@@ -463,38 +463,6 @@ Inductive operation :=
 Definition dummy_block : block := Block O O false.
 Definition dummy_path {l : nat} : path l := const_vec false l.
 
-Definition isEqvPath {l : nat} (p1 : path l) (p2 : path l) (idx : nat): bool :=
-  Vector.eqb bool Bool.eqb p1 p2.
-
-Fixpoint get_cand_bs {l : nat} (h : stash)(p : path l)(stop : nat)(m : position_map l) : list block :=
-  match h with
-  | [] => []
-  | x :: xs =>
-      let rhs_path := lookup_dict dummy_path (block_blockid x) m in
-      if @isEqvPath l p rhs_path stop
-      then x :: get_cand_bs xs p stop m
-      else get_cand_bs xs p stop m
-  end.
-
-Definition get_write_back_blocks {n l : nat} (p : path l) (h : stash) (lvl : nat) (mp : position_map l) : list block :=
-  match (length h) with
-  | O => []
-  | S m => let cand_bs := get_cand_bs h p lvl mp in
-          takeL (Nat.min (length cand_bs) n) cand_bs
-  end.
-  (*         if Nat.leb n (length(cand_bs)) *)
-  (*         then let wbSz := n in *)
-  (*              takeL n cand_bs *)
-  (*         else let wbSz := length(cand_bs) in  *)
-  (*              takeL wbSz cand_bs *)
-  (* end. *)
-
-Lemma bound_get_write_back_blocks {n l : nat} {p : path l} {h : stash} {lvl : nat} {mp : position_map l} :
-  (length (@get_write_back_blocks n l p h lvl mp) <= n)%nat.
-Admitted.
-
-Fixpoint pad_list_vec {X} {n : nat} (l : list X) (H : (length l <= n)%nat): Vector.t X n.
-Admitted.
 
 Fixpoint remove_list_sub (subList : list block) (p : block_id -> block_id -> bool) (lst : list block) : list block :=
   match lst with
@@ -579,22 +547,49 @@ Proof.
 Qed.
 (* --- END Talia's equivalent definition of nth to reuse later --- *)
 
-Definition blocks_selection {n l : nat} (p : path l) (lvl : nat) (s : state n l) : state n l :=
+Definition isEqvPath {l : nat} (p1 : path l) (p2 : path l) (idx : nat) (H : Nat.le idx l) : bool :=
+  Vector.eqb bool Bool.eqb (Vector.take idx H p1) (Vector.take idx H p2) .
+
+Fixpoint get_cand_bs {l : nat} (h : stash)(p : path l)(stop : nat)(m : position_map l) (H : Nat.le stop l) : list block :=
+  match h with
+  | [] => []
+  | x :: xs =>
+      let rhs_path := lookup_dict dummy_path (block_blockid x) m in
+      if @isEqvPath l p rhs_path stop H
+      then x :: get_cand_bs xs p stop m H 
+      else get_cand_bs xs p stop m H
+  end.
+
+Definition get_write_back_blocks {n l : nat} (p : path l) (h : stash) (lvl : nat) (mp : position_map l) (H : Nat.le lvl l ) : list block :=
+  match (length h) with
+  | O => []
+  | S m => let cand_bs := get_cand_bs h p lvl mp in
+          takeL (Nat.min (length (cand_bs H)) n) (cand_bs H)
+  end.
+
+Lemma bound_get_write_back_blocks {n l : nat} {p : path l} {h : stash} {lvl : nat} {mp : position_map l} {H : Nat.le lvl l}:
+  (length (@get_write_back_blocks n l p h lvl mp H ) <= n)%nat.
+Admitted.
+
+Fixpoint pad_list_vec {X} {n : nat} (l : list X) (H : (length l <= n)%nat): Vector.t X n.
+Admitted.
+
+Definition blocks_selection {n l : nat} (p : path l) (lvl : nat) (s : state n l) (H : Nat.le lvl l): state n l :=
   (* unpack the state *)
   let m := state_position_map s in (* pos_map *) 
   let h := state_stash s in        (* stash *)
   let o := state_oram s in         (* oram tree *)
   let wbs := @get_write_back_blocks n l p h lvl m in 
-  let wbs_bkt := pad_list_vec(get_write_back_blocks p h lvl m) bound_get_write_back_blocks in 
-  let up_h := remove_list_sub wbs (fun blk => equiv_decb blk) h in 
+  let wbs_bkt := pad_list_vec(get_write_back_blocks p h lvl m H) bound_get_write_back_blocks in 
+  let up_h := remove_list_sub (wbs H) (fun blk => equiv_decb blk) h in 
   let up_o := up_oram_tr o lvl wbs_bkt p in
   (State m up_h up_o).
 
 (* write_back is the last for-loop, searching backwards from the bottom of the tree to seek empty slots to write candidcate blocks back *)
 
-Fixpoint write_back {n l : nat} (s : state n l) (p : path l) (lvl : nat) : state n l :=
+Fixpoint write_back {n l : nat} (s : state n l) (p : path l) (lvl : nat) (H : Nat.le lvl l): state n l :=
   match lvl with
-  | O => blocks_selection p O s
+  | O => blocks_selection p O s H
   | S m => write_back (blocks_selection p lvl s) p m
   end.
 
@@ -798,6 +793,7 @@ Proof.
   - elim c. reflexivity.
 Qed.
 
+
 Lemma zero_sum_stsh_tr_Wr {n l : nat} (id : block_id) (v : nat) (m : position_map l) (h : stash) (o : oram n l) (p : path l)  (p_new : path l):
   forall (nst : state n l) (ret_data : nat),  
     access_helper id (Write v) m h o p p_new = (nst, ret_data) -> kv_rel id v nst.
@@ -805,14 +801,34 @@ Proof.
   unfold access_helper. simpl in *.
   intros. 
   destruct o.
-  - unfold write_back in H. unfold blocks_selection in H; simpl in *. inversion H.
-    + unfold kv_rel. right. unfold blk_in_stash. simpl. unfold get_write_back_blocks. simpl.
+  - (* Leaf_ORAM *)
+    unfold write_back in H. unfold blocks_selection in H; simpl in *. inversion H.
+    (* + admit. *)
+    + unfold kv_rel. right.     (* chooese in_stash as the goal *)
+      unfold blk_in_stash. simpl. unfold get_write_back_blocks. simpl.
       rewrite (zero_len_vector_nil p).
-      rewrite (zero_len_vector_nil  (lookup_dict dummy_path id (update_dict id p_new m))).
+      rewrite (zero_len_vector_nil (lookup_dict dummy_path id (update_dict id p_new m))).
       simpl.
-      destruct n; simpl.
-      * left. auto.
-      * rewrite eqdec_true. simpl. unfold get_cand_bs. 
+      destruct n; simpl.       
+      * (* case analysis on the size of the bucket capacity -- O *)
+        left. auto.
+      * (* case analysis on the size of the bucket capacity -- S n *)
+        rewrite eqdec_true.     
+        (* Does it ever fail? What happends when you cannot write to a Leaf_ORAM?  *) 
+        unfold get_cand_bs. 
+
+  - (* Node_ORAM *)
+    unfold write_back in H; unfold blocks_selection in H; simpl in *.
+    destruct l; simpl in *.
+    + destruct (Vector.hd p); simpl in *; inversion H.
+      * 
+
+
+
+
+
+
+      
     (* specifically, access_helper should only be defined when the oram is level at least 1 *)
     admit.
   - (* now we are in the actually viable case. prove following the structure of access_helper *)
